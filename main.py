@@ -2,8 +2,10 @@ from requests import get
 from requests.exceptions import RequestException
 from contextlib import closing
 from bs4 import BeautifulSoup
+import pandas as pd
 
 url = 'http://books.toscrape.com/catalogue/category/books_1/index.html'
+scraped_data = pd.DataFrame({})
 
 def simple_get(url):
     try:
@@ -28,24 +30,27 @@ def log_error(e):
 
 def get_names():
     response = simple_get(url)
+    scraped_data['titles'] = ''
     if response is not None:
         html = BeautifulSoup(response, 'html.parser')
         names = set()
-        for li in html.select('h3'):
-            for name in li.text.split('\n'):
-                if len(name) > 0:
-                    names.add(name.strip())
-        return list(names)
+        names = html.find_all('li',class_='col-xs-6 col-sm-4 col-md-3 col-lg-3')
+        for i,n in enumerate(names):
+            title = n.article.h3.a['title']
+            names[i] = title
+        scraped_data['titles'] = pd.Series(names)
+        return scraped_data.head()
 
     raise Exception('Error retrieving contents at {}'.format(url))
 
 def get_hits_on_name(name):
-    # url_root = Template('http://www.fabpedigree.com/james/mathmen.htm#$name')
+    url_root = Template('http://books.toscrape.com/catalogue/$name/index.html')
     response = simple_get(url_root.format(name))
 
     if response is not None:
         html = BeautifulSoup(response, 'html.parser')
-        hit_link = [a for a in html.select(class_="side_categories")]
+        hit_link = [a for a in html.select('a')
+                    if a['title'].find('latest-60') > -1]
 
         if len(hit_link) > 0:
             link_text = hit_link[0].text.replace(',', '')
@@ -57,7 +62,8 @@ def get_hits_on_name(name):
     log_error('No pageviews found for {}'.format(name))
     return None
 
-print get_names()
+get_names()
+print scraped_data
 
 # if __name__ == '__main__':
 #     print('Getting list of names...')
