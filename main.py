@@ -35,10 +35,12 @@ def get_names():
     if response is not None:
         html = BeautifulSoup(response, 'html.parser')
         list = set(html.find_all('li',class_='col-xs-6 col-sm-4 col-md-3 col-lg-3'))
-
+        titles = []
         for i,n in enumerate(list):
+            titles.append(n.article.h3.a['title'])
             df = get_data(n.article.h3.a['href'].strip('../../'),i)
             scraped_data = pd.concat([scraped_data,df.transpose()], ignore_index=True)
+        scraped_data['Titles'] = pd.Series(titles)
         return scraped_data
 
     raise Exception('Error retrieving contents at {}'.format(url_base))
@@ -57,6 +59,9 @@ def get_data(info_url, i):
     raise Exception('Error getting contents at {}'.format(link))
 
 table = get_names()
+cols = table.columns.tolist()
+cols = cols[-1:] + cols[:-1]
+table = table[cols]
 print table
 
 # if __name__ == '__main__':
