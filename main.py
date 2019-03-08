@@ -1,22 +1,23 @@
 from requests import get
 from requests.exceptions import RequestException
+import requests
 from contextlib import closing
 from bs4 import BeautifulSoup
 import pandas as pd
+from tabulate import tabulate
 
-url = 'http://books.toscrape.com/catalogue/category/books_1/index.html'
-scraped_data = pd.DataFrame({})
+url_base = 'http://books.toscrape.com/catalogue/category/books_1/index.html'
 
-def simple_get(url):
+def simple_get(link):
     try:
-        with closing(get(url, stream=True)) as resp:
+        with closing(get(link, stream=True)) as resp:
             if is_good_response(resp):
                 return resp.content
             else:
                 return None
 
     except RequestException as e:
-        log_error('Error during requests to {0} : {1}'.format(url,str(e)))
+        log_error('Error during requests to {0} : {1}'.format(link,str(e)))
         return None
 
 def is_good_response(resp):
@@ -29,41 +30,34 @@ def log_error(e):
     print(e)
 
 def get_names():
-    response = simple_get(url)
-    scraped_data['titles'] = ''
+    scraped_data = pd.DataFrame(columns=['UPC','Product Type', 'Price (excl. tax)','Price (incl. tax)', 'Tax', 'Availability', 'Number of reviews'])
+    response = simple_get(url_base)
     if response is not None:
         html = BeautifulSoup(response, 'html.parser')
-        names = set()
-        names = html.find_all('li',class_='col-xs-6 col-sm-4 col-md-3 col-lg-3')
-        for i,n in enumerate(names):
-            title = n.article.h3.a['title']
-            names[i] = title
-        scraped_data['titles'] = pd.Series(names)
-        return scraped_data.head()
+        list = set(html.find_all('li',class_='col-xs-6 col-sm-4 col-md-3 col-lg-3'))
 
-    raise Exception('Error retrieving contents at {}'.format(url))
+        for i,n in enumerate(list):
+            df = get_data(n.article.h3.a['href'].strip('../../'),i)
+            scraped_data = pd.concat([scraped_data,df.transpose()], ignore_index=True)
+        return scraped_data
 
-def get_hits_on_name(name):
-    url_root = Template('http://books.toscrape.com/catalogue/$name/index.html')
-    response = simple_get(url_root.format(name))
+    raise Exception('Error retrieving contents at {}'.format(url_base))
 
+def get_data(info_url, i):
+    link = 'http://books.toscrape.com/catalogue/{}'.format(info_url)
+    response = simple_get(link)
     if response is not None:
         html = BeautifulSoup(response, 'html.parser')
-        hit_link = [a for a in html.select('a')
-                    if a['title'].find('latest-60') > -1]
+        table = html.find_all('table')[0]
+        df = pd.read_html(str(table))[0]
+        df.drop(columns=[0], inplace=True)
+        df.rename({0:'UPC',1:'Product Type', 2:'Price (excl. tax)',3:'Price (incl. tax)', 4:'Tax', 5:'Availability', 6:'Number of reviews'}, inplace=True)
+        return df
 
-        if len(hit_link) > 0:
-            link_text = hit_link[0].text.replace(',', '')
-            try:
-                return int(link_text)
-            except:
-                log_error("couldnt parse {} as an 'int'".format(link_text))
+    raise Exception('Error getting contents at {}'.format(link))
 
-    log_error('No pageviews found for {}'.format(name))
-    return None
-
-get_names()
-print scraped_data
+table = get_names()
+print table
 
 # if __name__ == '__main__':
 #     print('Getting list of names...')
