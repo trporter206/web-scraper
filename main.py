@@ -4,9 +4,8 @@ import requests
 from contextlib import closing
 from bs4 import BeautifulSoup
 import pandas as pd
-from tabulate import tabulate
 
-url_base = 'http://books.toscrape.com/catalogue/category/books_1/index.html'
+url_base = 'http://books.toscrape.com/catalogue/page-1.html'
 
 def simple_get(link):
     try:
@@ -31,17 +30,20 @@ def log_error(e):
 
 def get_names():
     scraped_data = pd.DataFrame(columns=['UPC','Product Type', 'Price (excl. tax)','Price (incl. tax)', 'Tax', 'Availability', 'Number of reviews'])
-    response = simple_get(url_base)
-    if response is not None:
-        html = BeautifulSoup(response, 'html.parser')
-        list = set(html.find_all('li',class_='col-xs-6 col-sm-4 col-md-3 col-lg-3'))
-        titles = []
-        for i,n in enumerate(list):
-            titles.append(n.article.h3.a['title'])
-            df = get_data(n.article.h3.a['href'].strip('../../'),i)
-            scraped_data = pd.concat([scraped_data,df.transpose()], ignore_index=True)
-        scraped_data['Titles'] = pd.Series(titles)
-        return scraped_data
+    page_count = 5
+    for i in range(1,page_count+1):
+        link = 'http://books.toscrape.com/catalogue/page-{}.html'.format(i)
+        response = simple_get(link)
+        if response is not None:
+            html = BeautifulSoup(response, 'html.parser')
+            list = set(html.find_all('li',class_='col-xs-6 col-sm-4 col-md-3 col-lg-3'))
+            titles = []
+            for i,n in enumerate(list):
+                titles.append(n.article.h3.a['title'])
+                df = get_data(n.article.h3.a['href'].strip('../../'),i)
+                scraped_data = pd.concat([scraped_data,df.transpose()], ignore_index=True)
+            scraped_data['Titles'] = pd.Series(titles)
+    return scraped_data
 
     raise Exception('Error retrieving contents at {}'.format(url_base))
 
