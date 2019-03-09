@@ -29,25 +29,26 @@ def log_error(e):
     print(e)
 
 def get_names():
-    scraped_data = pd.DataFrame(columns=['UPC','Product Type', 'Price (excl. tax)','Price (incl. tax)', 'Tax', 'Availability', 'Number of reviews'])
-    page_count = 5
+    scraped_data = pd.DataFrame(columns=['Titles', 'UPC','Product Type', 'Price (excl. tax)','Price (incl. tax)', 'Tax', 'Availability', 'Number of reviews'])
+    page_count = 50
+    titles = []
     for i in range(1,page_count+1):
         link = 'http://books.toscrape.com/catalogue/page-{}.html'.format(i)
         response = simple_get(link)
         if response is not None:
             html = BeautifulSoup(response, 'html.parser')
             list = set(html.find_all('li',class_='col-xs-6 col-sm-4 col-md-3 col-lg-3'))
-            titles = []
-            for i,n in enumerate(list):
+            for n in list:
                 titles.append(n.article.h3.a['title'])
-                df = get_data(n.article.h3.a['href'].strip('../../'),i)
+                df = get_data(n.article.h3.a['href'].strip('../../'))
                 scraped_data = pd.concat([scraped_data,df.transpose()], ignore_index=True)
-            scraped_data['Titles'] = pd.Series(titles)
+
+    scraped_data['Titles'] = pd.Series(titles)
     return scraped_data
 
     raise Exception('Error retrieving contents at {}'.format(url_base))
 
-def get_data(info_url, i):
+def get_data(info_url):
     link = 'http://books.toscrape.com/catalogue/{}'.format(info_url)
     response = simple_get(link)
     if response is not None:
@@ -66,40 +67,4 @@ cols = cols[-1:] + cols[:-1]
 table = table[cols]
 print table
 
-# if __name__ == '__main__':
-#     print('Getting list of names...')
-#     names = get_names()
-#     print('...done.\n')
-#
-#     results = []
-#
-#     print('Getting stats for each name...')
-#
-#     for name in names:
-#         try:
-#             hits = get_hits_on_name(name)
-#             if hits is None:
-#                 hits = -1
-#             results.append((hits,name))
-#         except:
-#             results.append((-1,name))
-#             log_error('error encountered while processing '
-#                         '{}, skipping'.format(name))
-#
-#     print('...done.\n')
-#
-#     results.sort()
-#     results.reverse()
-#
-#     if len(results) > 5:
-#         top_marks = results[:5]
-#     else:
-#         top_marks = results
-#
-#     print('\nthe most popular mathematicians are:\n')
-#     for (mark, math) in top_marks:
-#         print('{} with {} pageviews'.format(math, mark))
-#
-#     no_results = len([res for res in results if res[0] == -1])
-#     print('\nBut we did not find results for '
-#             '{} mathematicians on the list'.format(no_results))
+table.to_csv('export.csv', encoding='utf-8')
