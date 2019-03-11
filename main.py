@@ -30,7 +30,7 @@ def log_error(e):
 
 def get_names():
     scraped_data = pd.DataFrame(columns=['Titles', 'UPC','Product Type', 'Price (excl. tax)','Price (incl. tax)', 'Tax', 'Availability', 'Number of reviews'])
-    page_count = 50
+    page_count = 1
     titles = []
     for i in range(1,page_count+1):
         link = 'http://books.toscrape.com/catalogue/page-{}.html'.format(i)
